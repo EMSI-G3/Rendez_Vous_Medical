@@ -68,6 +68,7 @@ public class LoginActivity extends AppCompatActivity {
             // Clients -> Patient Dashboard
             intent = new Intent(this, PatientActivity.class);
         }
+
         startActivity(intent);
         finish();
     }
