@@ -14,10 +14,17 @@ public class TimeSlotAdapter extends RecyclerView.Adapter<TimeSlotAdapter.ViewHo
 
     private List<TimeSlot> slots;
     private String userRole;
+    private OnSlotActionListener listener; // Interface listener
 
-    public TimeSlotAdapter(List<TimeSlot> slots, String userRole) {
+    // Interface to handle clicks in the Activity
+    public interface OnSlotActionListener {
+        void onSlotAction(TimeSlot slot, String action);
+    }
+
+    public TimeSlotAdapter(List<TimeSlot> slots, String userRole, OnSlotActionListener listener) {
         this.slots = slots;
         this.userRole = userRole;
+        this.listener = listener;
     }
 
     @NonNull
@@ -42,11 +49,15 @@ public class TimeSlotAdapter extends RecyclerView.Adapter<TimeSlotAdapter.ViewHo
 
             if ("Client".equals(userRole)) {
                 holder.actionButton.setText("Book");
+                holder.actionButton.setBackgroundColor(Color.parseColor("#2196F3")); // Blue for book
+                holder.actionButton.setOnClickListener(v -> listener.onSlotAction(slot, "book"));
             } else {
                 holder.actionButton.setText("Delete"); // Medicine/Secretary can remove
-                holder.actionButton.setBackgroundColor(Color.parseColor("#F44336")); // Red
+                holder.actionButton.setBackgroundColor(Color.parseColor("#F44336")); // Red for delete
+                holder.actionButton.setOnClickListener(v -> listener.onSlotAction(slot, "delete"));
             }
         } else {
+            // If Booked
             holder.statusText.setTextColor(Color.GRAY);
             holder.actionButton.setVisibility(View.GONE);
         }
