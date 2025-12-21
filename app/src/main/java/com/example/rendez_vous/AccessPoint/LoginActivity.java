@@ -1,4 +1,4 @@
-package com.example.rendez_vous;
+package com.example.rendez_vous.AccessPoint;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -6,70 +6,60 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-
+import com.example.rendez_vous.R;
+import com.example.rendez_vous.SessionManager;
 import com.example.rendez_vous.Patient.PatientActivity;
+import com.example.rendez_vous.Medicine.DoctorActivity;
+import com.example.rendez_vous.Medicine.SecretaryActivity;
 
 public class LoginActivity extends AppCompatActivity {
-
-    private Spinner roleSpinner;
-    private EditText emailInput, passwordInput;
-    private Button loginButton;
-    private TextView registerLink;
+    DatabaseHelper db;
+    SessionManager session;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // Initialize Views
-        roleSpinner = findViewById(R.id.roleSpinner);
-        emailInput = findViewById(R.id.emailEditText);
-        passwordInput = findViewById(R.id.passwordEditText);
-        loginButton = findViewById(R.id.loginButton);
-        registerLink = findViewById(R.id.registerLink);
+        db = new DatabaseHelper(this);
+        session = new SessionManager(this);
 
-        // Users
-        String[] roles = {"Client", "Medicine", "Secretary"};
+        Spinner roleSpinner = findViewById(R.id.roleSpinner);
+        EditText emailIn = findViewById(R.id.emailEditText);
+        EditText passIn = findViewById(R.id.passwordEditText);
+        Button btnLogin = findViewById(R.id.loginButton);
+
+        // Populate Roles
+        String[] roles = {"Client", "Medicine", "Secretary", "Admin"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, roles);
         roleSpinner.setAdapter(adapter);
 
-        // Login Logic
-        loginButton.setOnClickListener(v -> {
-            String email = emailInput.getText().toString();
-            String password = passwordInput.getText().toString();
-            String selectedRole = roleSpinner.getSelectedItem().toString();
+        btnLogin.setOnClickListener(v -> {
+            String email = emailIn.getText().toString();
+            String pass = passIn.getText().toString();
+            String role = roleSpinner.getSelectedItem().toString();
 
-            if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(LoginActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+            if (db.checkUser(email, pass, role)) {
+                session.createLoginSession(email, role);
+                redirectUser(role);
             } else {
-                // auth logic.
-                performLogin(selectedRole);
+                Toast.makeText(this, "Invalid Credentials for " + role, Toast.LENGTH_SHORT).show();
             }
         });
 
-        // Register Nav
-        registerLink.setOnClickListener(v -> {
-            Intent intent = new Intent(LoginActivity.this, RegisterActivity.class);
-            startActivity(intent);
-        });
+        findViewById(R.id.registerLink).setOnClickListener(v -> startActivity(new Intent(this, RegisterActivity.class)));
     }
 
-    private void performLogin(String role) {
-        Toast.makeText(this, "Welcome " + role, Toast.LENGTH_SHORT).show();
-        Intent intent;
-
-        if (role.equals("Medicine") || role.equals("Secretary")) {
-            // Doctors and Secretaries -> Schedule Management
-            intent = new Intent(this, ScheduleActivity.class);
-            intent.putExtra("ROLE", role); // Pass role to next screen
-        } else {
-            // Clients -> Patient Dashboard
-            intent = new Intent(this, PatientActivity.class);
+    private void redirectUser(String role) {
+        Intent intent = null;
+        switch (role) {
+            case "Client": intent = new Intent(this, PatientActivity.class); break;
+            case "Medicine": intent = new Intent(this, DoctorActivity.class); break; // "Medicine" goes to DoctorActivity
+            case "Secretary": intent = new Intent(this, SecretaryActivity.class); break;
+            case "Admin": intent = new Intent(this, SecretaryActivity.class); break;
         }
-
         startActivity(intent);
         finish();
     }

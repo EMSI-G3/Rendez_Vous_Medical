@@ -12,7 +12,7 @@
 
         <!-- 1. LOGIN SCREEN (Start Here) -->
         <activity
-            android:name=".LoginActivity"
+            android:name=".AccessPoint.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -22,18 +22,22 @@
 
         <!-- 2. REGISTER SCREEN -->
         <activity
-            android:name=".RegisterActivity"
+            android:name=".AccessPoint.RegisterActivity"
             android:exported="false" />
 
         <!-- 3. PATIENT SCREEN (For Clients) -->
         <activity
-            android:name=".PatientActivity"
+            android:name=".Patient.PatientActivity"
             android:exported="false" />
 
         <!-- 4. SCHEDULE SCREEN (For Doctor/Secretary) -->
         <activity
-            android:name=".ScheduleActivity"
+            android:name=".Medicine.ScheduleActivity"
             android:exported="false" />
+        <activity android:name=".Medicine.SecretaryActivity" />
+        <activity android:name=".Medicine.DoctorActivity" />
+        <activity android:name=".Profile.EditProfileActivity"/>
+
 
     </application>
 

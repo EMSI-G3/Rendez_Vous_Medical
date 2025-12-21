@@ -50,6 +50,14 @@
             android:padding="12dp"
             android:layout_marginBottom="16dp"/>
 
+        <!-- I ADDED THIS SPINNER so users can choose their Role -->
+        <Spinner
+            android:id="@+id/registerRoleSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@drawable/input_background"
+            android:layout_marginBottom="16dp"/>
+
         <EditText
             android:id="@+id/registerPassword"
             android:layout_width="match_parent"

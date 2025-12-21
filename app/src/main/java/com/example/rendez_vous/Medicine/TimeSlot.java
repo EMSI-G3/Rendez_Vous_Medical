@@ -1,19 +1,12 @@
-package com.example.rendez_vous;
+package com.example.rendez_vous.Medicine;
 
 public class TimeSlot {
-    private int id; // Added ID for Database
+    private int id;
     private String date;
     private String time;
     private String status;
+    private String patientName; // New Field
 
-    // Constructor without ID (for creating new slots before saving to DB)
-    public TimeSlot(String date, String time, String status) {
-        this.date = date;
-        this.time = time;
-        this.status = status;
-    }
-
-    // Constructor with ID (for reading from DB)
     public TimeSlot(int id, String date, String time, String status) {
         this.id = id;
         this.date = date;
@@ -21,11 +14,13 @@ public class TimeSlot {
         this.status = status;
     }
 
+    // Getters and Setters
     public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-
     public String getDate() { return date; }
     public String getTime() { return time; }
     public String getStatus() { return status; }
+    public String getPatientName() { return patientName; }
+
+    public void setPatientName(String patientName) { this.patientName = patientName; }
     public void setStatus(String status) { this.status = status; }
 }

@@ -1,20 +1,29 @@
-package com.example.rendez_vous;
+package com.example.rendez_vous.Medicine;
 
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageButton;
+import android.widget.PopupMenu;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import java.util.ArrayList;
+
+import com.example.rendez_vous.AccessPoint.DatabaseHelper;
+import com.example.rendez_vous.AccessPoint.LoginActivity;
+import com.example.rendez_vous.Profile.EditProfileActivity;
+import com.example.rendez_vous.R;
+import com.example.rendez_vous.SessionManager;
+
 import java.util.List;
 
-public class ScheduleActivity extends AppCompatActivity implements TimeSlotAdapter.OnSlotActionListener {
+public class ScheduleActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
-    private TimeSlotAdapter adapter;
-    private List<TimeSlot> slotList;
     private DatabaseHelper dbHelper;
+    private SessionManager session; // 1. Added SessionManager
     private String role;
 
     @Override
@@ -22,12 +31,10 @@ public class ScheduleActivity extends AppCompatActivity implements TimeSlotAdapt
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_schedule);
 
-        // Initialize DB
         dbHelper = new DatabaseHelper(this);
+        session = new SessionManager(this); // 2. Initialize SessionManager
 
-        // Get Role (Secretary or Medicine or Client)
         role = getIntent().getStringExtra("ROLE");
-        // Default role for testing if intent is null
         if (role == null) role = "Secretary";
 
         recyclerView = findViewById(R.id.slotsRecyclerView);
@@ -35,47 +42,76 @@ public class ScheduleActivity extends AppCompatActivity implements TimeSlotAdapt
 
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Initial Load of Data
         loadData();
 
-        btnAdd.setOnClickListener(v -> {
-            // ADD SLOT LOGIC
-            // In a real app, you would open a Dialog to pick Date/Time.
-            // Here, we add a dummy slot for demonstration.
-            TimeSlot newSlot = new TimeSlot("12 Oct", "14:00 - 14:30", "Available");
-            boolean success = dbHelper.addSlot(newSlot);
+        // 3. Add Profile Click Listener
+        findViewById(R.id.profileIcon).setOnClickListener(this::showProfileMenu);
 
+        btnAdd.setOnClickListener(v -> {
+            boolean success = dbHelper.addAppointment(0, "Walk-in Patient", "25/12/2025", "10:00");
             if (success) {
                 Toast.makeText(this, "Slot Added Successfully", Toast.LENGTH_SHORT).show();
-                loadData(); // Refresh list from DB
+                loadData();
             } else {
-                Toast.makeText(this, "Failed to Add Slot", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Slot/Time already taken!", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void loadData() {
-        // Fetch all data from SQLite
-        slotList = dbHelper.getAllSlots();
-
-        // Set Adapter with the new list and 'this' as the listener
-        adapter = new TimeSlotAdapter(slotList, role, this);
-        recyclerView.setAdapter(adapter);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        loadData();
     }
 
-    @Override
-    public void onSlotAction(TimeSlot slot, String action) {
-        if ("book".equals(action)) {
-            // Client is booking the slot
-            dbHelper.updateSlotStatus(slot.getId(), "Booked");
-            Toast.makeText(this, "Appointment Booked!", Toast.LENGTH_SHORT).show();
-        } else if ("delete".equals(action)) {
-            // Admin/Secretary is deleting the slot
-            dbHelper.deleteSlot(slot.getId());
-            Toast.makeText(this, "Slot Deleted", Toast.LENGTH_SHORT).show();
-        }
+    // 4. Added the missing method
+    private void showProfileMenu(View view) {
+        PopupMenu popup = new PopupMenu(this, view);
+        popup.getMenuInflater().inflate(R.menu.profile_menu, popup.getMenu());
 
-        // Refresh the UI
-        loadData();
+        popup.setOnMenuItemClickListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.action_edit_profile) {
+                startActivity(new Intent(this, EditProfileActivity.class));
+                return true;
+            } else if (id == R.id.action_settings) {
+                Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
+                return true;
+            } else if (id == R.id.action_logout) {
+                session.logoutUser();
+                finish();
+                return true;
+            }
+            return false;
+        });
+        popup.show();
+    }
+
+    private void loadData() {
+        List<TimeSlot> slotList = dbHelper.getAppointments(role, 0);
+
+        TimeSlotAdapter adapter = new TimeSlotAdapter(slotList, role, (slot, action) -> {
+            if (action.equals("delete")) {
+                new AlertDialog.Builder(this)
+                        .setTitle("Delete Appointment")
+                        .setMessage("Remove appointment for " + slot.getPatientName() + "?")
+                        .setPositiveButton("Yes", (dialog, which) -> {
+                            dbHelper.deleteAppointment(slot.getId());
+                            loadData();
+                        })
+                        .setNegativeButton("No", null)
+                        .show();
+            } else if (action.equals("update")) {
+                new AlertDialog.Builder(this)
+                        .setTitle("Update Status")
+                        .setItems(new String[]{"Confirm", "Complete"}, (dialog, which) -> {
+                            String newStatus = (which == 0) ? "Confirmed" : "Completed";
+                            dbHelper.updateStatus(slot.getId(), newStatus);
+                            loadData();
+                        })
+                        .show();
+            }
+        });
+        recyclerView.setAdapter(adapter);
     }
 }
