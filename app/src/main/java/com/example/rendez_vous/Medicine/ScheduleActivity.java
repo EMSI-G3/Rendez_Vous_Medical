@@ -19,6 +19,11 @@ import com.example.rendez_vous.SessionManager;
 
 import java.util.List;
 
+import android.telephony.SmsManager;
+import androidx.core.app.ActivityCompat;
+import android.content.pm.PackageManager;
+import android.Manifest;
+
 public class ScheduleActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
@@ -107,11 +112,36 @@ public class ScheduleActivity extends AppCompatActivity {
                         .setItems(new String[]{"Confirm", "Complete"}, (dialog, which) -> {
                             String newStatus = (which == 0) ? "Confirmed" : "Completed";
                             dbHelper.updateStatus(slot.getId(), newStatus);
+
+                            if (newStatus.equals("Completed")) {
+                                sendStatusSMS(slot.getId(), "Completed"); // Add this line
+                            }
                             loadData();
                         })
                         .show();
             }
         });
         recyclerView.setAdapter(adapter);
+    }
+    private void sendStatusSMS(int appointmentId, String status) {
+        // 1. Check for permission at runtime
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, 101);
+            return;
+        }
+
+        // 2. Get the phone number
+        String phoneNumber = dbHelper.getPatientPhoneByAppointmentId(appointmentId);
+
+        if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            try {
+                String message = "Hello, your appointment (ID: " + appointmentId + ") status has been updated to: " + status;
+                SmsManager smsManager = SmsManager.getDefault();
+                smsManager.sendTextMessage(phoneNumber, null, message, null, null);
+                Toast.makeText(this, "Notification SMS sent to patient.", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "SMS Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 }

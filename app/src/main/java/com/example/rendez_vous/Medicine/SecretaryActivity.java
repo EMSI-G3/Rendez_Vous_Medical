@@ -23,6 +23,14 @@ import com.example.rendez_vous.SessionManager;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.List;
+import android.telephony.SmsManager;
+import androidx.core.app.ActivityCompat;
+import android.content.pm.PackageManager;
+import android.Manifest;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.widget.ImageView;
 
 public class SecretaryActivity extends AppCompatActivity {
     DatabaseHelper db;
@@ -41,6 +49,30 @@ public class SecretaryActivity extends AppCompatActivity {
         db = new DatabaseHelper(this);
         session = new SessionManager(this);
 
+        String userEmail = session.getUserDetails().get(SessionManager.KEY_EMAIL); // Get current user's email
+
+        if (userEmail != null) {
+            // 1. Use your existing getUserId method
+            int currentUserId = db.getUserId(userEmail);
+
+            if (currentUserId != -1) {
+                // 2. Fetch the image bytes using the ID
+                byte[] imageBytes = db.getUserProfileImage(currentUserId);
+
+                if (imageBytes != null) {
+                    ImageView profileImageView = findViewById(R.id.patientProfileImage);
+
+                    // 3. Convert bytes to Bitmap and display
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    profileImageView.setImageBitmap(bitmap);
+
+                    // 4. Clean up the UI (Remove default tint and padding)
+                    profileImageView.setImageTintList(null);
+                    profileImageView.setPadding(0, 0, 0, 0);
+                }
+            }
+        }
+
         // Customize Header
         ((TextView)findViewById(R.id.welcomeText)).setText("Secretary Dashboard");
 
@@ -51,25 +83,25 @@ public class SecretaryActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.patientRecyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Setup Search Bar
+
         searchBar = findViewById(R.id.searchBar);
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // Dynamically filter based on what view is active
+
                 filterList(s.toString());
             }
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // Setup Profile Icon Click
+
         findViewById(R.id.profileIcon).setOnClickListener(this::showProfileMenu);
 
-        // Load Appointments by default on startup
+
         loadAppointments();
     }
 
-    // --- LOGIC TO SWITCH BETWEEN APPOINTMENTS AND USERS ---
+
 
     private void filterList(String query) {
         if (isViewingUsers) {
@@ -107,7 +139,10 @@ public class SecretaryActivity extends AppCompatActivity {
                     .setTitle("Manage: " + slot.getPatientName())
                     .setItems(options, (d, w) -> {
                         if (w == 0) db.updateStatus(slot.getId(), "Confirmed");
-                        if (w == 1) db.updateStatus(slot.getId(), "Completed");
+                        if (w == 1) { // Complete
+                            db.updateStatus(slot.getId(), "Completed");
+                            sendStatusSMS(slot.getId(), "Completed"); // Add this line
+                        }
                         if (w == 2) db.deleteAppointment(slot.getId());
 
                         // Refresh view keeping current search query
@@ -201,5 +236,26 @@ public class SecretaryActivity extends AppCompatActivity {
             return false;
         });
         popup.show();
+    }
+    private void sendStatusSMS(int appointmentId, String status) {
+        // 1. Check for permission at runtime
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, 101);
+            return;
+        }
+
+        // 2. Get the phone number
+        String phoneNumber = db.getPatientPhoneByAppointmentId(appointmentId);
+
+        if (phoneNumber != null && !phoneNumber.isEmpty()) {
+            try {
+                String message = "Hello, your appointment (ID: " + appointmentId + ") status has been updated to: " + status;
+                SmsManager smsManager = SmsManager.getDefault();
+                smsManager.sendTextMessage(phoneNumber, null, message, null, null);
+                Toast.makeText(this, "Notification SMS sent to patient.", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "SMS Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 }

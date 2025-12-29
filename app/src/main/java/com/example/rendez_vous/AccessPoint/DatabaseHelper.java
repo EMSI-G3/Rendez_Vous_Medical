@@ -12,7 +12,7 @@ import java.util.List;
 public class DatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "RendezVous_Final.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -20,7 +20,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, fullname TEXT, email TEXT, phone TEXT, password TEXT, role TEXT)");
+        db.execSQL("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, fullname TEXT, email TEXT, phone TEXT, password TEXT, role TEXT, profile_pic BLOB)");
         db.execSQL("CREATE TABLE appointments (id INTEGER PRIMARY KEY AUTOINCREMENT, patient_id INTEGER, patient_name TEXT, date TEXT, time TEXT, status TEXT)");
 
         // SEED DATA: Role is "Medicine"
@@ -36,7 +36,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         onCreate(db);
     }
 
-    public boolean registerUser(String fullname, String email, String phone, String password, String role) {
+    public boolean registerUser(String fullname, String email, String phone, String password, String role, byte[] image) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("fullname", fullname);
@@ -44,6 +44,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("phone", phone);
         values.put("password", password);
         values.put("role", role);
+        values.put("profile_pic", image);
         return db.insert("users", null, values) != -1;
     }
 
@@ -72,6 +73,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if(c.moveToFirst()) return c.getString(0);
         return "User";
     }
+
 
     // --- APPOINTMENT LOGIC ---
     public boolean isSlotTaken(String date, String time) {
@@ -216,7 +218,47 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return list;
     }
+    public String getPatientPhoneByAppointmentId(int appId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String phone = null;
+        // Join users and appointments to get the phone number for a specific appointment
+        String query = "SELECT u.phone FROM users u " +
+                "JOIN appointments a ON u.id = a.patient_id " +
+                "WHERE a.id = ?";
 
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(appId)});
+        if (cursor.moveToFirst()) {
+            phone = cursor.getString(0);
+        }
+        cursor.close();
+        return phone;
+    }
 
+    public byte[] getUserProfileImage(int userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        byte[] image = null;
+        // Querying the profile_pic column specifically by ID
+        Cursor cursor = db.rawQuery("SELECT profile_pic FROM users WHERE id=?", new String[]{String.valueOf(userId)});
+
+        if (cursor.moveToFirst()) {
+            image = cursor.getBlob(0);
+        }
+        cursor.close();
+        return image;
+    }
+
+    public boolean updateUserProfile(int id, String name, String phone, byte[] image) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("fullname", name);
+        values.put("phone", phone);
+
+        // Only update image if the user actually picked a new one
+        if (image != null) {
+            values.put("profile_pic", image);
+        }
+
+        return db.update("users", values, "id=?", new String[]{String.valueOf(id)}) > 0;
+    }
 
 }

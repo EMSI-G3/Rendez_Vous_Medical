@@ -19,7 +19,23 @@
             android:textStyle="bold"
             android:textColor="@color/purple_500"
             android:layout_marginBottom="32dp"/>
+        <ImageView
+            android:id="@+id/registerUserImage"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginBottom="8dp"
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/ic_menu_camera"
+            android:background="@drawable/input_background"/>
 
+        <Button
+            android:id="@+id/btnSelectImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Select Picture"
+            android:textSize="12sp"
+            android:layout_marginBottom="16dp"
+            style="@style/Widget.AppCompat.Button.Borderless"/>
         <EditText
             android:id="@+id/fullName"
             android:layout_width="match_parent"

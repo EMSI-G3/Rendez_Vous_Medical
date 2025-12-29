@@ -47,6 +47,7 @@
             app:cardBackgroundColor="#B2DFDB">
 
             <ImageView
+                android:id="@+id/patientProfileImage"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:src="@android:drawable/ic_menu_my_calendar"

@@ -2,11 +2,14 @@ package com.example.rendez_vous.Medicine;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -34,6 +37,30 @@ public class DoctorActivity extends AppCompatActivity {
 
         db = new DatabaseHelper(this);
         session = new SessionManager(this);
+
+        String userEmail = session.getUserDetails().get(SessionManager.KEY_EMAIL); // Get current user's email
+
+        if (userEmail != null) {
+            // 1. Use your existing getUserId method
+            int currentUserId = db.getUserId(userEmail);
+
+            if (currentUserId != -1) {
+                // 2. Fetch the image bytes using the ID
+                byte[] imageBytes = db.getUserProfileImage(currentUserId);
+
+                if (imageBytes != null) {
+                    ImageView profileImageView = findViewById(R.id.patientProfileImage);
+
+                    // 3. Convert bytes to Bitmap and display
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    profileImageView.setImageBitmap(bitmap);
+
+                    // 4. Clean up the UI (Remove default tint and padding)
+                    profileImageView.setImageTintList(null);
+                    profileImageView.setPadding(0, 0, 0, 0);
+                }
+            }
+        }
 
         // Customize Header
         ((TextView)findViewById(R.id.welcomeText)).setText("Medicine Dashboard");

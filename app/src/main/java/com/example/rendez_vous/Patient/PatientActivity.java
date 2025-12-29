@@ -3,10 +3,13 @@ package com.example.rendez_vous.Patient;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.app.TimePickerDialog;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,16 +42,55 @@ public class PatientActivity extends AppCompatActivity {
         db = new DatabaseHelper(this);
         session = new SessionManager(this);
 
+        // --- LOGIC TO FETCH IMAGE BY ID ---
+        String userEmail = session.getUserDetails().get(SessionManager.KEY_EMAIL); // Get current user's email
+
+        if (userEmail != null) {
+            // 1. Use your existing getUserId method
+            int currentUserId = db.getUserId(userEmail);
+
+            if (currentUserId != -1) {
+                // 2. Fetch the image bytes using the ID
+                byte[] imageBytes = db.getUserProfileImage(currentUserId);
+
+                if (imageBytes != null) {
+                    ImageView profileImageView = findViewById(R.id.patientProfileImage);
+
+                    // 3. Convert bytes to Bitmap and display
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+                    profileImageView.setImageBitmap(bitmap);
+
+                    // 4. Clean up the UI (Remove default tint and padding)
+                    profileImageView.setImageTintList(null);
+                    profileImageView.setPadding(0, 0, 0, 0);
+                }
+            }
+        }
+        // ----------------------------------
+
         recyclerView = findViewById(R.id.patientRecyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
         updateList();
 
         findViewById(R.id.cardBookAppointment).setOnClickListener(v -> showBookingDialog());
-
-        // --- NEW: Add Click Listener for Profile Icon ---
-        // Matches the ID 'profileIcon' added to activity_patient.xml
         findViewById(R.id.profileIcon).setOnClickListener(this::showProfileMenu);
+    }
+
+    private void loadProfilePicture(int userId, ImageView imageView) {
+        byte[] imageBytes = db.getUserProfileImage(userId);
+
+        if (imageBytes != null && imageBytes.length > 0) {
+            // Decode the byte array into a Bitmap
+            Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+            imageView.setImageBitmap(bitmap);
+
+            // Remove the default tint and padding so the photo looks good
+            imageView.setImageTintList(null);
+            imageView.setPadding(0, 0, 0, 0);
+        } else {
+            // If no image, keep the default calendar icon or set a placeholder
+            imageView.setImageResource(android.R.drawable.ic_menu_my_calendar);
+        }
     }
 
     // --- NEW: Method to show the Popup Menu ---
