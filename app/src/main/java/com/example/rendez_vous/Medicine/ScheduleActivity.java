@@ -1,35 +1,35 @@
 package com.example.rendez_vous.Medicine;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.telephony.SmsManager;
 import android.view.View;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.rendez_vous.AccessPoint.DatabaseHelper;
-import com.example.rendez_vous.AccessPoint.LoginActivity;
 import com.example.rendez_vous.Profile.EditProfileActivity;
 import com.example.rendez_vous.R;
 import com.example.rendez_vous.SessionManager;
 
 import java.util.List;
 
-import android.telephony.SmsManager;
-import androidx.core.app.ActivityCompat;
-import android.content.pm.PackageManager;
-import android.Manifest;
-
 public class ScheduleActivity extends AppCompatActivity {
 
     private RecyclerView recyclerView;
     private DatabaseHelper dbHelper;
-    private SessionManager session; // 1. Added SessionManager
+    private SessionManager session;
     private String role;
+    private int currentUserId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,9 +37,13 @@ public class ScheduleActivity extends AppCompatActivity {
         setContentView(R.layout.activity_schedule);
 
         dbHelper = new DatabaseHelper(this);
-        session = new SessionManager(this); // 2. Initialize SessionManager
+        session = new SessionManager(this);
 
-        role = getIntent().getStringExtra("ROLE");
+        // Fetch user info from session
+        role = session.getUserDetails().get("role");
+        String email = session.getUserDetails().get("email");
+        currentUserId = dbHelper.getUserId(email);
+
         if (role == null) role = "Secretary";
 
         recyclerView = findViewById(R.id.slotsRecyclerView);
@@ -49,16 +53,19 @@ public class ScheduleActivity extends AppCompatActivity {
 
         loadData();
 
-        // 3. Add Profile Click Listener
         findViewById(R.id.profileIcon).setOnClickListener(this::showProfileMenu);
 
         btnAdd.setOnClickListener(v -> {
-            boolean success = dbHelper.addAppointment(0, "Walk-in Patient", "25/12/2025", "10:00");
+            // FIX: addAppointment now needs patientId, doctorId, and clinicId.
+            // For a 'Walk-in', we use 0 for patientId.
+            // Here we assume Doctor ID 1 and Clinic ID 1 for testing purposes.
+            boolean success = dbHelper.addAppointment(0, 1, 1, "Walk-in Patient", "25/12/2025", "10:00");
+
             if (success) {
                 Toast.makeText(this, "Slot Added Successfully", Toast.LENGTH_SHORT).show();
                 loadData();
             } else {
-                Toast.makeText(this, "Slot/Time already taken!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Slot/Time already taken or Doctor unavailable!", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -69,7 +76,6 @@ public class ScheduleActivity extends AppCompatActivity {
         loadData();
     }
 
-    // 4. Added the missing method
     private void showProfileMenu(View view) {
         PopupMenu popup = new PopupMenu(this, view);
         popup.getMenuInflater().inflate(R.menu.profile_menu, popup.getMenu());
@@ -78,9 +84,6 @@ public class ScheduleActivity extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.action_edit_profile) {
                 startActivity(new Intent(this, EditProfileActivity.class));
-                return true;
-            } else if (id == R.id.action_settings) {
-                Toast.makeText(this, "Settings clicked", Toast.LENGTH_SHORT).show();
                 return true;
             } else if (id == R.id.action_logout) {
                 session.logoutUser();
@@ -93,7 +96,8 @@ public class ScheduleActivity extends AppCompatActivity {
     }
 
     private void loadData() {
-        List<TimeSlot> slotList = dbHelper.getAppointments(role, 0);
+        // FIX: Using currentUserId from session so the DB knows which appointments to show
+        List<TimeSlot> slotList = dbHelper.getAppointments(role, currentUserId);
 
         TimeSlotAdapter adapter = new TimeSlotAdapter(slotList, role, (slot, action) -> {
             if (action.equals("delete")) {
@@ -114,7 +118,7 @@ public class ScheduleActivity extends AppCompatActivity {
                             dbHelper.updateStatus(slot.getId(), newStatus);
 
                             if (newStatus.equals("Completed")) {
-                                sendStatusSMS(slot.getId(), "Completed"); // Add this line
+                                sendStatusSMS(slot.getId(), "Completed");
                             }
                             loadData();
                         })
@@ -123,22 +127,21 @@ public class ScheduleActivity extends AppCompatActivity {
         });
         recyclerView.setAdapter(adapter);
     }
+
     private void sendStatusSMS(int appointmentId, String status) {
-        // 1. Check for permission at runtime
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, 101);
             return;
         }
 
-        // 2. Get the phone number
         String phoneNumber = dbHelper.getPatientPhoneByAppointmentId(appointmentId);
 
         if (phoneNumber != null && !phoneNumber.isEmpty()) {
             try {
-                String message = "Hello, your appointment (ID: " + appointmentId + ") status has been updated to: " + status;
+                String message = "Rendez-Vous: Your appointment (ID: " + appointmentId + ") is now " + status + ".";
                 SmsManager smsManager = SmsManager.getDefault();
                 smsManager.sendTextMessage(phoneNumber, null, message, null, null);
-                Toast.makeText(this, "Notification SMS sent to patient.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Notification SMS sent.", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 Toast.makeText(this, "SMS Failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }

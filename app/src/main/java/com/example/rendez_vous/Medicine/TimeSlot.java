@@ -6,6 +6,8 @@ public class TimeSlot {
     private String time;
     private String status;
     private String patientName; // New Field
+    private String doctorName;
+    private String clinicName;
 
     public TimeSlot(int id, String date, String time, String status) {
         this.id = id;
@@ -23,4 +25,11 @@ public class TimeSlot {
 
     public void setPatientName(String patientName) { this.patientName = patientName; }
     public void setStatus(String status) { this.status = status; }
+
+    public void setDoctorName(String doctorName) { this.doctorName = doctorName; }
+    public String getDoctorName() { return doctorName; }
+
+    public void setClinicName(String clinicName) { this.clinicName = clinicName; }
+    public String getClinicName() { return clinicName; }
+
 }

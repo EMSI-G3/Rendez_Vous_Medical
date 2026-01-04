@@ -46,29 +46,31 @@ public class SecretaryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_patient); // Reuse the shared layout
 
+        // Inside SecretaryActivity.java -> onCreate
+
         db = new DatabaseHelper(this);
         session = new SessionManager(this);
 
-        String userEmail = session.getUserDetails().get(SessionManager.KEY_EMAIL); // Get current user's email
+// FIX: Use the key from SessionManager to get the current email
+        String userEmail = session.getUserDetails().get(SessionManager.KEY_EMAIL);
 
         if (userEmail != null) {
-            // 1. Use your existing getUserId method
             int currentUserId = db.getUserId(userEmail);
 
             if (currentUserId != -1) {
-                // 2. Fetch the image bytes using the ID
                 byte[] imageBytes = db.getUserProfileImage(currentUserId);
+                ImageView profileImageView = findViewById(R.id.patientProfileImage);
 
-                if (imageBytes != null) {
-                    ImageView profileImageView = findViewById(R.id.patientProfileImage);
-
-                    // 3. Convert bytes to Bitmap and display
+                if (imageBytes != null && imageBytes.length > 0) {
                     Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
                     profileImageView.setImageBitmap(bitmap);
 
-                    // 4. Clean up the UI (Remove default tint and padding)
+                    // Important: Remove the teal tint so the photo looks natural
                     profileImageView.setImageTintList(null);
                     profileImageView.setPadding(0, 0, 0, 0);
+                } else {
+                    // Optional: If the secretary has no image, set a default icon
+                    profileImageView.setImageResource(android.R.drawable.ic_menu_my_calendar);
                 }
             }
         }

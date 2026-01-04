@@ -74,6 +74,40 @@
             android:background="@drawable/input_background"
             android:layout_marginBottom="16dp"/>
 
+        <LinearLayout
+            android:id="@+id/doctorExtraFields"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp">
+
+            <EditText
+                android:id="@+id/registerSpecialty"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:hint="Medical Specialty (e.g. Cardiology)"
+                android:inputType="text"
+                android:background="@drawable/input_background"
+                android:padding="12dp"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Assign to Clinic"
+                android:textColor="#666"
+                android:textSize="12sp"
+                android:layout_marginStart="4dp"
+                android:layout_marginBottom="4dp"/>
+
+            <Spinner
+                android:id="@+id/registerClinicSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/input_background"/>
+        </LinearLayout>
+
         <EditText
             android:id="@+id/registerPassword"
             android:layout_width="match_parent"

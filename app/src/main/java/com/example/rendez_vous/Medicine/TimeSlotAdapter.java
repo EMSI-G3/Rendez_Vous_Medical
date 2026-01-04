@@ -52,7 +52,8 @@ public class TimeSlotAdapter extends RecyclerView.Adapter<TimeSlotAdapter.ViewHo
 
         // Button Logic
         if(userRole.equals("Client")) {
-            holder.actionButton.setVisibility(View.GONE); // Clients can't modify list directly here
+            holder.actionButton.setVisibility(View.GONE);// Clients can't modify list directly here
+
         }
         else if (userRole.equals("Doctor")) {
             holder.actionButton.setVisibility(View.VISIBLE);
