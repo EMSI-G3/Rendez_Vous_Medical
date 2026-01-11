@@ -38,7 +38,7 @@ public class TimeSlotAdapter extends RecyclerView.Adapter<TimeSlotAdapter.ViewHo
         holder.timeText.setText(slot.getTime());
         holder.statusText.setText(slot.getStatus());
 
-        // Show Patient Name if Doctor/Secretary, otherwise show Date
+        // Show Patient Name if Doctor/Secretary/Medicine, otherwise show Date
         if(userRole.equals("Client")) {
             holder.dateText.setText(slot.getDate());
         } else {
@@ -50,22 +50,30 @@ public class TimeSlotAdapter extends RecyclerView.Adapter<TimeSlotAdapter.ViewHo
         else if(slot.getStatus().equals("Pending")) holder.statusText.setTextColor(Color.parseColor("#FF9800")); // Orange
         else holder.statusText.setTextColor(Color.GRAY);
 
-        // Button Logic
+        // --- BUTTON LOGIC FIX ---
         if(userRole.equals("Client")) {
-            holder.actionButton.setVisibility(View.GONE);// Clients can't modify list directly here
-
+            holder.actionButton.setVisibility(View.GONE);
         }
         else if (userRole.equals("Doctor")) {
             holder.actionButton.setVisibility(View.VISIBLE);
             holder.actionButton.setText("UPDATE");
-            holder.actionButton.setBackgroundColor(Color.parseColor("#2196F3")); // Blue
+            holder.actionButton.setBackgroundColor(Color.parseColor("#2196F3"));
             holder.actionButton.setOnClickListener(v -> listener.onSlotAction(slot, "update"));
         }
         else if (userRole.equals("Secretary")) {
             holder.actionButton.setVisibility(View.VISIBLE);
             holder.actionButton.setText("DELETE");
-            holder.actionButton.setBackgroundColor(Color.parseColor("#F44336")); // Red
+            holder.actionButton.setBackgroundColor(Color.parseColor("#F44336"));
             holder.actionButton.setOnClickListener(v -> listener.onSlotAction(slot, "delete"));
+        }
+        // --- THIS IS THE NEW PART FOR YOUR MEDICINE FILE ---
+        else if (userRole.equals("Medicine")) {
+            holder.actionButton.setVisibility(View.VISIBLE);
+            holder.actionButton.setText("OPTIONS"); // I changed 'BOOK' to 'OPTIONS' so it makes more sense
+            holder.actionButton.setBackgroundColor(Color.parseColor("#009688")); // Teal color to match your theme
+
+            // This enables the click!
+            holder.actionButton.setOnClickListener(v -> listener.onSlotAction(slot, "options"));
         }
     }
 
