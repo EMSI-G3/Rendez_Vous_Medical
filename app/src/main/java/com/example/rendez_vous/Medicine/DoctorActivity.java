@@ -17,6 +17,10 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.provider.CalendarContract;
+import android.content.DialogInterface;
+import android.content.Intent;
+
 import com.example.rendez_vous.AccessPoint.DatabaseHelper;
 import com.example.rendez_vous.Profile.EditProfileActivity;
 import com.example.rendez_vous.R;
@@ -29,6 +33,7 @@ public class DoctorActivity extends AppCompatActivity {
     SessionManager session;
     RecyclerView recyclerView;
     EditText searchBar;
+    TextView welcomeText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,7 +68,8 @@ public class DoctorActivity extends AppCompatActivity {
         }
 
         // Customize Header
-        ((TextView)findViewById(R.id.welcomeText)).setText("Medicine Dashboard");
+        welcomeText = findViewById(R.id.welcomeText);
+        welcomeText.setText("Medicine Dashboard");
 
         // Hide Booking Card
         findViewById(R.id.cardBookAppointment).setVisibility(View.GONE);
@@ -104,27 +110,78 @@ public class DoctorActivity extends AppCompatActivity {
         }
     }
 
+    // 1. THIS IS THE ADAPTER METHOD
     private void bindAdapter(List<TimeSlot> list) {
-        // Pass "Medicine" role to Adapter so it shows UPDATE buttons
+        // Update the Dashboard Text
+        if (welcomeText != null) {
+            welcomeText.setText("Medicine Dashboard (" + list.size() + ")");
+        }
+
+        // Setup the Adapter
         recyclerView.setAdapter(new TimeSlotAdapter(list, "Medicine", (slot, action) -> {
-            // Dialog for Confirming or Completing
+
+            // --- SMART ACTION MENU ---
+            String[] options = {
+                    "✅ Confirm Appointment",
+                    "🏁 Mark Completed",
+                    "📅 Add to Phone Calendar",
+                    "🗑️ Delete"
+            };
+
             new AlertDialog.Builder(this)
-                    .setTitle("Update Status")
-                    .setMessage("Patient: " + slot.getPatientName())
-                    .setPositiveButton("Confirm", (d, w) -> {
-                        db.updateStatus(slot.getId(), "Confirmed");
-                        // Refresh view maintaining search
-                        filterList(searchBar.getText().toString());
+                    .setTitle("Actions for " + slot.getPatientName())
+                    .setItems(options, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            switch (which) {
+                                case 0: // Confirm
+                                    db.updateStatus(slot.getId(), "Confirmed");
+                                    filterList(searchBar.getText().toString());
+                                    break;
+
+                                case 1: // Complete
+                                    db.updateStatus(slot.getId(), "Completed");
+                                    filterList(searchBar.getText().toString());
+                                    break;
+
+                                case 2: // CALENDAR INTEGRATION
+                                    addToDeviceCalendar(slot);
+                                    break;
+
+                                case 3: // Delete
+                                    com.example.rendez_vous.Medicine.DatabaseHelper medDb =
+                                            new com.example.rendez_vous.Medicine.DatabaseHelper(DoctorActivity.this);
+                                    medDb.deleteSlot(slot.getId());
+                                    medDb.close();
+                                    Toast.makeText(DoctorActivity.this, "Deleted", Toast.LENGTH_SHORT).show();
+                                    filterList(searchBar.getText().toString());
+                                    break;
+                            }
+                        }
                     })
-                    .setNegativeButton("Complete", (d, w) -> {
-                        db.updateStatus(slot.getId(), "Completed");
-                        filterList(searchBar.getText().toString());
-                    })
-                    .setNeutralButton("Cancel", null)
                     .show();
         }));
-    }
+    } // <--- THIS BRACKET CLOSES bindAdapter. IMPORTANT!
 
+
+    // 2. THIS IS THE HELPER METHOD (IT MUST BE OUTSIDE)
+    private void addToDeviceCalendar(TimeSlot slot) {
+        try {
+            // Create an Intent to insert a new Event
+            Intent intent = new Intent(Intent.ACTION_INSERT);
+            intent.setData(CalendarContract.Events.CONTENT_URI);
+
+            // Pre-fill the details
+            intent.putExtra(CalendarContract.Events.TITLE, "Appointment: " + slot.getPatientName());
+            intent.putExtra(CalendarContract.Events.DESCRIPTION, "Medical appointment. Status: " + slot.getStatus());
+            intent.putExtra(CalendarContract.Events.EVENT_LOCATION, "EMSI Clinic");
+
+            startActivity(intent);
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Could not open Calendar app", Toast.LENGTH_SHORT).show();
+        }
+    }
     private void showProfileMenu(View view) {
         PopupMenu popup = new PopupMenu(this, view);
         // Only standard options for Doctor
