@@ -26,12 +26,14 @@ import com.example.rendez_vous.AccessPoint.Clinic;
 import com.example.rendez_vous.AccessPoint.DatabaseHelper;
 import com.example.rendez_vous.AccessPoint.Doctor;
 import com.example.rendez_vous.AccessPoint.DoctorAdapter;
+import com.example.rendez_vous.AccessPoint.Specialty;
 import com.example.rendez_vous.Medicine.TimeSlot;
 import com.example.rendez_vous.Medicine.TimeSlotAdapter;
 import com.example.rendez_vous.Profile.EditProfileActivity;
 import com.example.rendez_vous.R;
 import com.example.rendez_vous.SessionManager;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -41,6 +43,9 @@ public class PatientActivity extends AppCompatActivity {
     SessionManager session;
     RecyclerView recyclerView;
     String selectedDate = "", selectedTime = "";
+
+    private String slectedSpecialty = "";
+    private String selectedSpecialtyName = "";
 
     private int navigationStep = 0; // 0: Dashboard, 1: Clinics, 2: Doctors
     private int selectedClinicId = -1; // Store this globally in the activity
@@ -73,12 +78,13 @@ public class PatientActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (navigationStep == 2) {
-                    showClinicSelection();
+                if (navigationStep == 3) {
+                    showSpecialtySelection(selectedClinicId); // Go back to specialties
+                } else if (navigationStep == 2) {
+                    showClinicSelection(); // Go back to clinics
                 } else if (navigationStep == 1) {
                     resetToDashboard();
                 } else {
-                    // Fix: 'this' refers to the OnBackPressedCallback
                     this.setEnabled(false);
                     getOnBackPressedDispatcher().onBackPressed();
                 }
@@ -102,82 +108,118 @@ public class PatientActivity extends AppCompatActivity {
         findViewById(R.id.profileIcon).setOnClickListener(this::showProfileMenu);
     }
 
+
+
+
+
     private void performSearch(String query) {
         String email = session.getUserDetails().get(SessionManager.KEY_EMAIL);
         int uid = db.getUserId(email);
+        RecyclerView rvSec = findViewById(R.id.patientRecyclerViewSecond);
 
         if (navigationStep == 0) {
-            // Search Appointments
+            // Search Appointments (Dashboard)
             recyclerView.setAdapter(new TimeSlotAdapter(db.searchPatientAppointments(uid, query), "Client", null));
         }
         else if (navigationStep == 1) {
-            // Search Clinics
-            RecyclerView rvSec = findViewById(R.id.patientRecyclerViewSecond);
-            rvSec.setAdapter(new ClinicAdapter(db.searchClinics(query), c -> showDoctorSelection(c.getId())));
+            // Search Clinics -> Now leads to Specialty
+            rvSec.setAdapter(new ClinicAdapter(db.searchClinics(query), c -> showSpecialtySelection(c.getId())));
         }
         else if (navigationStep == 2) {
-            // Search Doctors inside the chosen clinic
-            RecyclerView rvSec = findViewById(R.id.patientRecyclerViewSecond);
-            List<Doctor> filteredDoctors = db.searchDoctors(selectedClinicId, query);
+            // Search Specialties (Filtering the list)
+            List<Specialty> allSpecs = db.getSpecialtiesByClinic(selectedClinicId);
+            List<Specialty> filteredSpecs = new ArrayList<>();
+            for (Specialty s : allSpecs) {
+                if (s.getName().toLowerCase().contains(query.toLowerCase())) {
+                    filteredSpecs.add(s);
+                }
+            }
+            rvSec.setAdapter(new SpecialtyAdapter(filteredSpecs, s -> showDoctorSelection(selectedClinicId, s.getName())));
+        }
+        else if (navigationStep == 3) {
+            // FIX: Added selectedSpecialtyName to match the new DatabaseHelper method signature
+            List<Doctor> filteredDoctors = db.searchDoctors(selectedClinicId, selectedSpecialtyName, query);
+
             rvSec.setAdapter(new DoctorAdapter(filteredDoctors, d -> showBookingDialog(selectedClinicId, d.getId())));
         }
     }
 
-    /**
-     * Step 1: Show Clinic List
-     */
     private void showClinicSelection() {
         navigationStep = 1;
 
-        // 1. Get references to your UI components
-        View card = findViewById(R.id.cardBookAppointment);
-        View search = findViewById(R.id.searchContainer);
-        RecyclerView mainList = findViewById(R.id.patientRecyclerView);
+        // UI Visibility
+        findViewById(R.id.cardBookAppointment).setVisibility(View.GONE);
+        findViewById(R.id.patientRecyclerView).setVisibility(View.GONE);
+        findViewById(R.id.patientRecyclerViewSecond).setVisibility(View.VISIBLE);
+        findViewById(R.id.btnBackSelection).setVisibility(View.VISIBLE);
+
+        // Header updates
+        ((TextView)findViewById(R.id.listTitle)).setText("Select a Clinic");
+        ((TextView)findViewById(R.id.tvHeaderCategory)).setText("Step 1 of 3");
+
         RecyclerView secondList = findViewById(R.id.patientRecyclerViewSecond);
-        TextView title = findViewById(R.id.listTitle);
-        ImageButton backBtn = findViewById(R.id.btnBackSelection);
-
-        // 2. Switch Visibility
-        card.setVisibility(View.GONE);
-        mainList.setVisibility(View.GONE);
-        secondList.setVisibility(View.VISIBLE);
-        backBtn.setVisibility(View.VISIBLE);
-
-        // 3. Update Text
-        title.setText("Select a Clinic");
-        ((TextView)findViewById(R.id.tvHeaderCategory)).setText("Step 1 of 2");
-
-        // 4. Setup RecyclerView
         secondList.setLayoutManager(new LinearLayoutManager(this));
 
-        // 5. Fetch Data - If this list is empty, check seedData in DatabaseHelper
         List<Clinic> clinics = db.getAllClinics();
-
         if (clinics.isEmpty()) {
-            Toast.makeText(this, "No clinics found in database!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No clinics found!", Toast.LENGTH_SHORT).show();
         }
 
-        // 6. Bind Adapter
-        ClinicAdapter adapter = new ClinicAdapter(clinics, clinic -> {
-            showDoctorSelection(clinic.getId());
-        });
-        secondList.setAdapter(adapter);
+        secondList.setAdapter(new ClinicAdapter(clinics, clinic -> {
+            showSpecialtySelection(clinic.getId()); // Move to Step 2
+        }));
 
-        // Handle back button
-        backBtn.setOnClickListener(v -> resetToDashboard());
+        findViewById(R.id.btnBackSelection).setOnClickListener(v -> resetToDashboard());
     }
 
-    private void showDoctorSelection(int clinicId) {
-        this.selectedClinicId = clinicId; // Save the ID for searching later
+    /**
+     * Step 2: Select Specialty
+     */
+    private void showSpecialtySelection(int clinicId) {
+        this.selectedClinicId = clinicId; // Store clinic context
         navigationStep = 2;
+
+        ((TextView)findViewById(R.id.listTitle)).setText("Select Specialty");
+        ((TextView)findViewById(R.id.tvHeaderCategory)).setText("Step 2 of 3");
+
+        RecyclerView secondList = findViewById(R.id.patientRecyclerViewSecond);
+
+        // Fetch specialties from DB (Ensure you added this method to DatabaseHelper)
+        List<Specialty> specialties = db.getSpecialtiesByClinic(clinicId);
+
+        if (specialties.isEmpty()) {
+            Toast.makeText(this, "No specialties found for this clinic!", Toast.LENGTH_SHORT).show();
+        }
+
+        secondList.setAdapter(new SpecialtyAdapter(specialties, specialty -> {
+            showDoctorSelection(clinicId, specialty.getName()); // Move to Step 3
+        }));
+
+        findViewById(R.id.btnBackSelection).setOnClickListener(v -> showClinicSelection());
+    }
+
+    /**
+     * Step 3: Select Doctor (Filtered by Clinic AND Specialty)
+     */
+    private void showDoctorSelection(int clinicId, String specialty) {
+        this.selectedSpecialtyName = specialty;
+        navigationStep = 3;
+
+        ((TextView)findViewById(R.id.listTitle)).setText("Doctors: " + specialty);
+        ((TextView)findViewById(R.id.tvHeaderCategory)).setText("Step 3 of 3");
 
         EditText searchBar = findViewById(R.id.searchBar);
         searchBar.setText("");
-        searchBar.setHint("Search doctor name or specialty...");
+        searchBar.setHint("Search doctors...");
 
         RecyclerView secondList = findViewById(R.id.patientRecyclerViewSecond);
-        List<Doctor> doctors = db.getDoctorsByClinic(clinicId);
+
+        // Use the filtered method from DatabaseHelper
+        List<Doctor> doctors = db.getDoctorsByClinicAndSpecialty(clinicId, specialty);
+
         secondList.setAdapter(new DoctorAdapter(doctors, d -> showBookingDialog(clinicId, d.getId())));
+
+        findViewById(R.id.btnBackSelection).setOnClickListener(v -> showSpecialtySelection(clinicId));
     }
 
     private void resetToDashboard() {
@@ -213,24 +255,64 @@ public class PatientActivity extends AppCompatActivity {
 
         tvDate.setOnClickListener(v -> {
             Calendar c = Calendar.getInstance();
-            new DatePickerDialog(this, (view, y, m, day) -> {
+            DatePickerDialog dpd = new DatePickerDialog(this, (view, y, m, day) -> {
                 selectedDate = day + "/" + (m + 1) + "/" + y;
                 tvDate.setText(selectedDate);
-            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show();
+
+                // Optionnel : Réinitialiser l'heure si la date change pour forcer une nouvelle vérification
+                selectedTime = "";
+                tvTime.setText("Select Time");
+            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH));
+
+            // --- EMPECHER LES DATES PASSEES ---
+            // On fixe la date minimale sur "aujourd'hui" (en millisecondes)
+            dpd.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
+
+            dpd.show();
         });
 
         tvTime.setOnClickListener(v -> {
-            Calendar c = Calendar.getInstance();
+            if (selectedDate.isEmpty()) {
+                Toast.makeText(this, "Please select a date first", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Calendar now = Calendar.getInstance();
             new TimePickerDialog(this, (view, h, m) -> {
-                selectedTime = String.format(Locale.getDefault(), "%02d:%02d", h, m);
-                tvTime.setText(selectedTime);
-            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show();
+
+                // Vérification si la date sélectionnée est aujourd'hui
+                String todayStr = now.get(Calendar.DAY_OF_MONTH) + "/" + (now.get(Calendar.MONTH) + 1) + "/" + now.get(Calendar.YEAR);
+
+                if (selectedDate.equals(todayStr)) {
+                    // Si c'est aujourd'hui, on vérifie si l'heure est passée
+                    if (h < now.get(Calendar.HOUR_OF_DAY) || (h == now.get(Calendar.HOUR_OF_DAY) && m <= now.get(Calendar.MINUTE))) {
+                        Toast.makeText(this, "This time has already passed!", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                }
+
+                // Vérification des horaires de travail (09h - 18h)
+                if (h < 9 || h >= 18) {
+                    Toast.makeText(this, "We are closed. Choose between 09:00 and 18:00", Toast.LENGTH_SHORT).show();
+                } else {
+                    selectedTime = String.format(Locale.getDefault(), "%02d:%02d", h, m);
+                    tvTime.setText(selectedTime);
+                }
+            }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true).show();
         });
 
         d.findViewById(R.id.dialogBtnConfirm).setOnClickListener(v -> {
             if (selectedDate.isEmpty() || selectedTime.isEmpty()) {
                 Toast.makeText(this, "Please select both Date and Time", Toast.LENGTH_SHORT).show();
                 return;
+            }
+
+            int selectedHour = Integer.parseInt(selectedTime.split(":")[0]);
+
+            // Définition de la plage horaire (ex: 09:00 - 18:00)
+            if (selectedHour < 9 || selectedHour >= 18) {
+                Toast.makeText(this, "Appointments are only available between 09:00 and 18:00", Toast.LENGTH_LONG).show();
+                return; // On arrête l'exécution ici
             }
 
             String email = session.getUserDetails().get(SessionManager.KEY_EMAIL);
@@ -261,7 +343,23 @@ public class PatientActivity extends AppCompatActivity {
         d.show();
     }
 
+    private void showPrettyToast(String message, int iconRes, int bgColor) {
+        View layout = getLayoutInflater().inflate(R.layout.custom_toast_layout, findViewById(R.id.custom_toast_container));
 
+        // Set text and icon
+        TextView text = layout.findViewById(R.id.toast_text);
+        ImageView icon = layout.findViewById(R.id.toast_icon);
+        View container = layout.findViewById(R.id.custom_toast_container);
+
+        text.setText(message);
+        icon.setImageResource(iconRes);
+        container.getBackground().setColorFilter(bgColor, android.graphics.PorterDuff.Mode.SRC_IN);
+
+        Toast toast = new Toast(getApplicationContext());
+        toast.setDuration(Toast.LENGTH_SHORT);
+        toast.setView(layout);
+        toast.show();
+    }
 
 
 

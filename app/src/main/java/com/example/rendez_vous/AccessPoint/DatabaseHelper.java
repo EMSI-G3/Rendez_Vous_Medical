@@ -201,7 +201,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
-        values.put("patient_id", patientId);  // Ensure this matches the ID from session
+        values.put("patient_id", patientId);
         values.put("doctor_id", doctorId);
         values.put("clinic_id", clinicId);
         values.put("patient_name", patientName);
@@ -259,23 +259,68 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return list;
     }
-    public List<Doctor> searchDoctors(int clinicId, String query) {
+    public List<Doctor> searchDoctors(int clinicId, String specialty, String query) {
         List<Doctor> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
         String searchPattern = "%" + query + "%";
 
-        // We only search doctors within the SELECTED clinic
+        // We filter by clinic_id AND the specific specialty, then search by name
         String sql = "SELECT d.id, u.fullname, d.specialty, d.available, u.profile_pic " +
                 "FROM doctors d " +
                 "JOIN users u ON d.user_id = u.id " +
-                "WHERE d.clinic_id = ? AND (u.fullname LIKE ? OR d.specialty LIKE ?)";
+                "WHERE d.clinic_id = ? " +
+                "AND d.specialty = ? " +
+                "AND u.fullname LIKE ?";
 
-        Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(clinicId), searchPattern, searchPattern});
+        // Pass three parameters: clinicId, the selected specialty name, and the search query
+        Cursor cursor = db.rawQuery(sql, new String[]{
+                String.valueOf(clinicId),
+                specialty,
+                searchPattern
+        });
 
         if (cursor.moveToFirst()) {
             do {
+                int id = cursor.getInt(0);
+                String name = cursor.getString(1);
+                String spec = cursor.getString(2);
+                boolean available = cursor.getInt(3) == 1;
                 byte[] pic = cursor.getBlob(4);
-                list.add(new Doctor(cursor.getInt(0), cursor.getString(1), cursor.getString(2), cursor.getInt(3) == 1, pic));
+
+                list.add(new Doctor(id, name, spec, available, pic));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return list;
+    }
+
+    // 1. Get unique specialties for a specific clinic
+    public List<Specialty> getSpecialtiesByClinic(int clinicId) {
+        List<Specialty> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery("SELECT DISTINCT specialty FROM doctors WHERE clinic_id = ?",
+                new String[]{String.valueOf(clinicId)});
+        if (cursor.moveToFirst()) {
+            do {
+                list.add(new Specialty(cursor.getString(0)));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return list;
+    }
+
+    public List<Doctor> getDoctorsByClinicAndSpecialty(int clinicId, String specialty) {
+        List<Doctor> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT d.id, u.fullname, d.specialty, d.available, u.profile_pic " +
+                "FROM doctors d " +
+                "JOIN users u ON d.user_id = u.id " +
+                "WHERE d.clinic_id = ? AND d.specialty = ? AND d.available = 1";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(clinicId), specialty});
+        if (cursor.moveToFirst()) {
+            do {
+                list.add(new Doctor(cursor.getInt(0), cursor.getString(1), cursor.getString(2),
+                        cursor.getInt(3) == 1, cursor.getBlob(4)));
             } while (cursor.moveToNext());
         }
         cursor.close();
